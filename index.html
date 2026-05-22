@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>VelocityX — Neural Speed Test</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@300;400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --neon-blue:#00d4ff;
+  --neon-purple:#b400ff;
+  --neon-pink:#ff006e;
+  --neon-green:#00ff9f;
+  --neon-orange:#ff6b00;
+  --dark:#030712;
+  --dark2:#070d1a;
+  --glass:rgba(0,212,255,0.04);
+  --glass-border:rgba(0,212,255,0.15);
+  --font-hud:'Orbitron',monospace;
+  --font-body:'Rajdhani',sans-serif;
+  --font-mono:'Share Tech Mono',monospace;
+}
+
+/* THEMES */
+body.theme-cyberpunk{--neon-blue:#00d4ff;--neon-purple:#b400ff;--neon-pink:#ff006e;--accent1:#00d4ff;--accent2:#b400ff}
+body.theme-space{--neon-blue:#4fc3f7;--neon-purple:#7c4dff;--neon-pink:#ff4081;--accent1:#4fc3f7;--accent2:#7c4dff}
+body.theme-rgb{--neon-blue:#ff0000;--neon-purple:#00ff00;--neon-pink:#0000ff;--accent1:#ff0000;--accent2:#00ff44}
+body.theme-hacker{--neon-blue:#00ff41;--neon-purple:#00cc33;--neon-pink:#00ff41;--accent1:#00ff41;--accent2:#00cc33}
+
+html,body{width:100%;height:100%;overflow:hidden;background:#030712;cursor:none}
+#app{width:100%;height:100%;position:relative;overflow:hidden;font-family:var(--font-body)}
+
+/* CUSTOM CURSOR */
+#cursor{position:fixed;pointer-events:none;z-index:9999;mix-blend-mode:screen}
+#cursor-dot{width:8px;height:8px;background:var(--neon-blue);border-radius:50%;position:absolute;transform:translate(-50%,-50%);box-shadow:0 0 10px var(--neon-blue),0 0 20px var(--neon-blue),0 0 40px var(--neon-blue);transition:transform .1s}
+#cursor-ring{width:40px;height:40px;border:1px solid rgba(0,212,255,.5);border-radius:50%;position:absolute;transform:translate(-50%,-50%);transition:width .2s,height .2s,border-color .2s;box-shadow:0 0 15px rgba(0,212,255,.2)}
+
+/* CANVAS BG */
+#bg-canvas{position:fixed;top:0;left:0;width:100%;height:100%;z-index:0}
+
+/* SCANLINES */
+.scanlines{position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;pointer-events:none;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.08) 2px,rgba(0,0,0,.08) 4px)}
+
+/* VIGNETTE */
+.vignette{position:fixed;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none;background:radial-gradient(ellipse at center,transparent 50%,rgba(3,7,18,.85) 100%)}
+
+/* NOISE */
+.noise{position:fixed;top:0;left:0;width:100%;height:100%;z-index:2;pointer-events:none;opacity:.025;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='1'/%3E%3C/svg%3E")}
+
+/* MAIN UI */
+#ui{position:fixed;top:0;left:0;width:100%;height:100%;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px}
+
+/* HEADER */
+.header{position:fixed;top:0;left:0;right:0;z-index:20;padding:16px 32px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg,rgba(3,7,18,.9) 0%,transparent 100%)}
+.logo{font-family:var(--font-hud);font-size:clamp(18px,3vw,28px);font-weight:900;letter-spacing:.2em;color:var(--neon-blue);text-shadow:0 0 20px var(--neon-blue),0 0 40px var(--neon-blue);display:flex;align-items:center;gap:8px}
+.logo-x{color:var(--neon-purple);text-shadow:0 0 20px var(--neon-purple),0 0 40px var(--neon-purple)}
+.logo-dot{width:8px;height:8px;background:var(--neon-pink);border-radius:50%;box-shadow:0 0 10px var(--neon-pink);animation:pulse 1.5s infinite}
+.header-right{display:flex;align-items:center;gap:12px}
+
+/* THEME SELECTOR */
+.theme-btn{font-family:var(--font-mono);font-size:10px;padding:4px 10px;border:1px solid var(--glass-border);background:var(--glass);color:rgba(255,255,255,.5);cursor:none;letter-spacing:.1em;transition:all .3s;clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px))}
+.theme-btn:hover,.theme-btn.active{border-color:var(--neon-blue);color:var(--neon-blue);background:rgba(0,212,255,.1);box-shadow:0 0 15px rgba(0,212,255,.2)}
+
+/* SERVER INFO */
+.server-tag{font-family:var(--font-mono);font-size:11px;color:rgba(0,212,255,.6);letter-spacing:.05em;display:flex;align-items:center;gap:6px}
+.server-dot{width:6px;height:6px;background:var(--neon-green);border-radius:50%;box-shadow:0 0 8px var(--neon-green);animation:pulse 2s infinite}
+
+/* MAIN CONTAINER */
+.main{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:clamp(16px,3vh,32px);width:100%;max-width:900px}
+
+/* SPEED METER */
+.meter-container{position:relative;display:flex;align-items:center;justify-content:center}
+#speed-canvas{filter:drop-shadow(0 0 30px var(--neon-blue))}
+
+.speed-display{position:absolute;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;pointer-events:none}
+.speed-value{font-family:var(--font-hud);font-size:clamp(36px,8vw,80px);font-weight:900;color:#fff;text-shadow:0 0 20px var(--neon-blue),0 0 40px var(--neon-blue);line-height:1;letter-spacing:-.02em;transition:text-shadow .3s}
+.speed-unit{font-family:var(--font-mono);font-size:clamp(11px,2vw,16px);color:var(--neon-blue);letter-spacing:.3em;margin-top:4px;opacity:.8}
+.speed-phase{font-family:var(--font-mono);font-size:clamp(9px,1.5vw,13px);color:rgba(0,212,255,.5);letter-spacing:.2em;margin-top:8px;text-transform:uppercase}
+
+/* START BTN */
+.start-btn{position:relative;font-family:var(--font-hud);font-size:clamp(13px,2vw,18px);font-weight:700;letter-spacing:.25em;padding:clamp(14px,2vh,20px) clamp(40px,6vw,70px);background:transparent;border:none;cursor:none;overflow:hidden;clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px);transition:all .3s}
+.start-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,212,255,.15),rgba(180,0,255,.15));border:1px solid var(--glass-border);clip-path:inherit;transition:all .3s}
+.start-btn::after{content:'';position:absolute;inset:1px;background:linear-gradient(135deg,rgba(0,212,255,.05),rgba(180,0,255,.05));clip-path:inherit}
+.start-btn-text{position:relative;z-index:1;color:var(--neon-blue);text-shadow:0 0 20px var(--neon-blue)}
+.start-btn:hover::before{background:linear-gradient(135deg,rgba(0,212,255,.3),rgba(180,0,255,.3));border-color:var(--neon-blue);box-shadow:0 0 30px rgba(0,212,255,.4),inset 0 0 30px rgba(0,212,255,.1)}
+.start-btn:hover .start-btn-text{text-shadow:0 0 30px var(--neon-blue),0 0 60px var(--neon-blue)}
+.start-btn:disabled{opacity:.5;pointer-events:none}
+
+/* STATS ROW */
+.stats-row{display:flex;gap:clamp(10px,2vw,20px);width:100%;justify-content:center;flex-wrap:wrap}
+
+/* STAT CARD */
+.stat-card{flex:1;min-width:120px;max-width:200px;position:relative;padding:clamp(12px,2vh,20px);background:rgba(0,10,30,.6);border:1px solid var(--glass-border);clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,10px 100%,0 calc(100% - 10px));backdrop-filter:blur(10px);overflow:hidden;transition:all .3s}
+.stat-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,212,255,.03),rgba(180,0,255,.03));pointer-events:none}
+.stat-card-glow{position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle at center,var(--neon-blue) 0%,transparent 60%);opacity:0;transition:opacity .5s;pointer-events:none}
+.stat-card:hover .stat-card-glow{opacity:.05}
+.stat-icon{font-size:20px;margin-bottom:6px;display:block}
+.stat-label{font-family:var(--font-mono);font-size:10px;color:rgba(0,212,255,.5);letter-spacing:.2em;text-transform:uppercase;margin-bottom:4px}
+.stat-val{font-family:var(--font-hud);font-size:clamp(20px,3.5vw,32px);font-weight:700;color:#fff;text-shadow:0 0 15px var(--neon-blue);transition:all .1s}
+.stat-unit{font-family:var(--font-mono);font-size:10px;color:var(--neon-blue);letter-spacing:.15em;margin-top:2px;opacity:.7}
+.stat-bar{height:3px;background:rgba(0,212,255,.1);border-radius:2px;margin-top:8px;overflow:hidden}
+.stat-bar-fill{height:100%;width:0%;border-radius:2px;transition:width .3s;position:relative}
+.stat-bar-fill::after{content:'';position:absolute;right:0;top:0;width:20px;height:100%;background:white;filter:blur(4px);opacity:.8}
+
+/* ROAST CARD */
+.roast-card{width:100%;max-width:600px;padding:clamp(14px,2.5vh,22px);background:rgba(0,10,30,.7);border:1px solid rgba(255,0,110,.2);clip-path:polygon(0 0,calc(100% - 16px) 0,100% 16px,100% 100%,16px 100%,0 calc(100% - 16px));backdrop-filter:blur(15px);opacity:0;transform:translateY(20px);transition:all .5s;pointer-events:none}
+.roast-card.visible{opacity:1;transform:translateY(0);pointer-events:auto}
+.roast-label{font-family:var(--font-mono);font-size:10px;color:rgba(255,0,110,.6);letter-spacing:.25em;margin-bottom:8px}
+.roast-text{font-family:var(--font-hud);font-size:clamp(14px,2.5vw,20px);font-weight:600;color:#fff;text-shadow:0 0 20px rgba(255,0,110,.5);line-height:1.4}
+
+/* HISTORY */
+.history-panel{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:15;width:200px;padding:16px;background:rgba(0,5,20,.8);border-left:1px solid var(--glass-border);border-top:1px solid var(--glass-border);border-bottom:1px solid var(--glass-border);backdrop-filter:blur(20px);clip-path:polygon(10px 0,100% 0,100% 100%,10px 100%,0 calc(100% - 10px),0 10px);transition:all .5s;display:none}
+.history-panel.show{display:block}
+.history-title{font-family:var(--font-mono);font-size:10px;color:var(--neon-blue);letter-spacing:.2em;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.history-item{padding:8px;border:1px solid rgba(0,212,255,.1);margin-bottom:6px;clip-path:polygon(4px 0,100% 0,100% calc(100% - 4px),calc(100% - 4px) 100%,0 100%,0 4px);background:rgba(0,212,255,.03)}
+.history-speed{font-family:var(--font-hud);font-size:16px;color:var(--neon-blue)}
+.history-time{font-family:var(--font-mono);font-size:9px;color:rgba(255,255,255,.3);margin-top:2px}
+
+/* SHARE CARD */
+.share-overlay{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.85);backdrop-filter:blur(20px);opacity:0;pointer-events:none;transition:opacity .4s}
+.share-overlay.visible{opacity:1;pointer-events:auto}
+#share-card{width:520px;max-width:95vw;padding:40px;background:linear-gradient(135deg,rgba(0,5,20,.95),rgba(10,0,30,.95));border:1px solid var(--glass-border);position:relative;overflow:hidden;clip-path:polygon(0 0,calc(100% - 20px) 0,100% 20px,100% 100%,20px 100%,0 calc(100% - 20px))}
+.share-card-bg{position:absolute;inset:0;background:linear-gradient(135deg,rgba(0,212,255,.03),rgba(180,0,255,.03));pointer-events:none}
+.share-card-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(0,212,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(0,212,255,.05) 1px,transparent 1px);background-size:30px 30px;pointer-events:none}
+.share-logo{font-family:var(--font-hud);font-size:24px;font-weight:900;color:var(--neon-blue);letter-spacing:.3em;margin-bottom:24px}
+.share-speeds{display:flex;gap:24px;margin-bottom:24px}
+.share-speed-item{flex:1;text-align:center;padding:16px;border:1px solid rgba(0,212,255,.15);clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px))}
+.share-speed-val{font-family:var(--font-hud);font-size:36px;font-weight:900;color:white;text-shadow:0 0 20px var(--neon-blue)}
+.share-speed-lbl{font-family:var(--font-mono);font-size:10px;color:var(--neon-blue);letter-spacing:.2em;margin-top:4px}
+.share-roast-display{font-family:var(--font-hud);font-size:16px;color:rgba(255,0,110,.9);text-align:center;padding:16px;border-top:1px solid rgba(0,212,255,.1);letter-spacing:.05em}
+.share-actions{display:flex;gap:12px;margin-top:20px;justify-content:center}
+.share-act-btn{font-family:var(--font-mono);font-size:11px;padding:10px 20px;border:1px solid var(--glass-border);background:var(--glass);color:rgba(255,255,255,.7);cursor:none;letter-spacing:.1em;transition:all .3s;clip-path:polygon(0 0,calc(100% - 6px) 0,100% 6px,100% 100%,6px 100%,0 calc(100% - 6px))}
+.share-act-btn:hover{border-color:var(--neon-blue);color:var(--neon-blue);box-shadow:0 0 15px rgba(0,212,255,.2)}
+.close-share{position:absolute;top:16px;right:16px;font-family:var(--font-mono);font-size:18px;color:rgba(255,255,255,.4);cursor:none;transition:color .3s;background:none;border:none;line-height:1}
+.close-share:hover{color:var(--neon-pink)}
+
+/* PING RADAR */
+.radar-wrap{position:relative;display:inline-block}
+
+/* GRAPH AREA */
+.graph-area{width:100%;max-width:600px;height:80px;position:relative;overflow:hidden}
+.graph-canvas{width:100%;height:100%;display:block}
+
+/* CORNER DECORATIONS */
+.corner-deco{position:fixed;pointer-events:none;z-index:5}
+.corner-deco.tl{top:0;left:0}
+.corner-deco.tr{top:0;right:0;transform:scaleX(-1)}
+.corner-deco.bl{bottom:0;left:0;transform:scaleY(-1)}
+.corner-deco.br{bottom:0;right:0;transform:scale(-1)}
+.corner-deco svg{opacity:.3}
+
+/* BOTTOM STATUS BAR */
+.status-bar{position:fixed;bottom:0;left:0;right:0;z-index:15;padding:8px 32px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(0deg,rgba(3,7,18,.9) 0%,transparent 100%)}
+.status-text{font-family:var(--font-mono);font-size:10px;color:rgba(0,212,255,.4);letter-spacing:.15em}
+.status-indicator{display:flex;align-items:center;gap:16px}
+.fps-counter{font-family:var(--font-mono);font-size:10px;color:rgba(0,212,255,.3)}
+
+/* TUNNEL FLASH */
+.tunnel-flash{position:fixed;inset:0;z-index:50;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,rgba(0,212,255,.3) 0%,transparent 70%)}
+
+/* SCREEN SHAKE handled via JS */
+
+/* LOADING ANIMATION */
+.loading-ring{position:absolute;border-radius:50%;border:2px solid transparent;animation:spin 2s linear infinite}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes glitch{0%{clip-path:polygon(0 0,100% 0,100% 100%,0 100%)}10%{clip-path:polygon(0 2%,100% 2%,100% 6%,0 6%)}20%{clip-path:polygon(0 20%,100% 20%,100% 24%,0 24%)}30%{clip-path:polygon(0 55%,100% 55%,100% 60%,0 60%)}40%{clip-path:polygon(0 0,100% 0,100% 100%,0 100%)}100%{clip-path:polygon(0 0,100% 0,100% 100%,0 100%)}}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes rgbShift{0%{--neon-blue:#ff0000;--neon-purple:#00ff00}33%{--neon-blue:#00ff00;--neon-purple:#0000ff}66%{--neon-blue:#0000ff;--neon-purple:#ff0000}100%{--neon-blue:#ff0000;--neon-purple:#00ff00}}
+
+.theme-rgb .logo,.theme-rgb .speed-value,.theme-rgb .stat-val{animation:rgbShift 3s infinite}
+
+/* HIDE HISTORY BTN */
+.history-toggle{position:fixed;right:0;top:50%;transform:translateY(-50%);z-index:16;font-family:var(--font-mono);font-size:9px;writing-mode:vertical-rl;padding:10px 6px;background:rgba(0,212,255,.1);border:1px solid var(--glass-border);border-right:none;color:rgba(0,212,255,.5);cursor:none;letter-spacing:.1em;transition:all .3s}
+.history-toggle:hover{background:rgba(0,212,255,.2);color:var(--neon-blue)}
+
+/* RESPONSIVE */
+@media(max-width:600px){
+  .stats-row{gap:8px}
+  .stat-card{min-width:90px;padding:10px}
+  .history-panel{display:none!important}
+  .history-toggle{display:none}
+  .header{padding:12px 16px}
+  .header-right{gap:6px}
+  .theme-btn{font-size:8px;padding:3px 7px}
+}
+</style>
+</head>
+<body class="theme-cyberpunk">
+
+<!-- THREE.JS CANVAS -->
+<canvas id="bg-canvas"></canvas>
+<div class="scanlines"></div>
+<div class="vignette"></div>
+<div class="noise"></div>
+
+<!-- TUNNEL FLASH -->
+<div class="tunnel-flash" id="tunnel-flash"></div>
+
+<!-- CUSTOM CURSOR -->
+<div id="cursor">
+  <div id="cursor-ring"></div>
+  <div id="cursor-dot"></div>
+</div>
+
+<!-- CORNER DECORATIONS -->
+<div class="corner-deco tl">
+  <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+    <path d="M0 0 L40 0 L40 4 L4 4 L4 40 L0 40 Z" fill="#00d4ff"/>
+    <path d="M0 0 L20 0 L20 2 L2 2 L2 20 L0 20 Z" fill="#00d4ff" opacity=".5"/>
+    <line x1="50" y1="0" x2="50" y2="30" stroke="#00d4ff" stroke-width=".5" opacity=".3"/>
+    <line x1="70" y1="0" x2="70" y2="20" stroke="#00d4ff" stroke-width=".5" opacity=".2"/>
+    <line x1="0" y1="50" x2="30" y2="50" stroke="#00d4ff" stroke-width=".5" opacity=".3"/>
+  </svg>
+</div>
+<div class="corner-deco tr">
+  <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+    <path d="M0 0 L40 0 L40 4 L4 4 L4 40 L0 40 Z" fill="#b400ff"/>
+    <path d="M0 0 L20 0 L20 2 L2 2 L2 20 L0 20 Z" fill="#b400ff" opacity=".5"/>
+  </svg>
+</div>
+<div class="corner-deco bl">
+  <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+    <path d="M0 0 L40 0 L40 4 L4 4 L4 40 L0 40 Z" fill="#b400ff"/>
+    <path d="M0 0 L20 0 L20 2 L2 2 L2 20 L0 20 Z" fill="#b400ff" opacity=".5"/>
+  </svg>
+</div>
+<div class="corner-deco br">
+  <svg width="120" height="120" viewBox="0 0 120 120" fill="none">
+    <path d="M0 0 L40 0 L40 4 L4 4 L4 40 L0 40 Z" fill="#00d4ff"/>
+  </svg>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="logo">
+    VELOCITY<span class="logo-x">X</span>
+    <div class="logo-dot"></div>
+  </div>
+  <div class="header-right">
+    <div class="server-tag"><div class="server-dot"></div>SYN <span id="server-loc">NEURAL.GRID.AP-01</span></div>
+    <button class="theme-btn active" onclick="setTheme('cyberpunk')">CYBER</button>
+    <button class="theme-btn" onclick="setTheme('space')">SPACE</button>
+    <button class="theme-btn" onclick="setTheme('rgb')">RGB</button>
+    <button class="theme-btn" onclick="setTheme('hacker')">HACK</button>
+  </div>
+</div>
+
+<!-- MAIN UI -->
+<div id="ui">
+  <div class="main" id="main-panel">
+
+    <!-- SPEED METER -->
+    <div class="meter-container" id="meter-wrap">
+      <canvas id="speed-canvas" width="320" height="320"></canvas>
+      <div class="speed-display">
+        <div class="speed-value" id="speed-val">0.0</div>
+        <div class="speed-unit" id="speed-unit">Mbps</div>
+        <div class="speed-phase" id="speed-phase">READY</div>
+      </div>
+    </div>
+
+    <!-- START BUTTON -->
+    <button class="start-btn" id="start-btn" onclick="startTest()">
+      <span class="start-btn-text" id="btn-text">▶ INITIATE TEST</span>
+    </button>
+
+    <!-- STATS ROW -->
+    <div class="stats-row">
+      <!-- DOWNLOAD -->
+      <div class="stat-card" id="card-dl">
+        <div class="stat-card-glow"></div>
+        <span class="stat-icon">⬇</span>
+        <div class="stat-label">Download</div>
+        <div class="stat-val" id="dl-val">—</div>
+        <div class="stat-unit">Mbps</div>
+        <div class="stat-bar"><div class="stat-bar-fill" id="dl-bar" style="background:linear-gradient(90deg,#00d4ff,#b400ff)"></div></div>
+      </div>
+      <!-- UPLOAD -->
+      <div class="stat-card" id="card-ul">
+        <div class="stat-card-glow"></div>
+        <span class="stat-icon">⬆</span>
+        <div class="stat-label">Upload</div>
+        <div class="stat-val" id="ul-val">—</div>
+        <div class="stat-unit">Mbps</div>
+        <div class="stat-bar"><div class="stat-bar-fill" id="ul-bar" style="background:linear-gradient(90deg,#b400ff,#ff006e)"></div></div>
+      </div>
+      <!-- PING -->
+      <div class="stat-card" id="card-ping">
+        <div class="stat-card-glow"></div>
+        <span class="stat-icon" id="ping-icon">◎</span>
+        <div class="stat-label">Ping</div>
+        <div class="stat-val" id="ping-val">—</div>
+        <div class="stat-unit">ms</div>
+        <div class="stat-bar"><div class="stat-bar-fill" id="ping-bar" style="background:linear-gradient(90deg,#00ff9f,#00d4ff)"></div></div>
+      </div>
+      <!-- JITTER -->
+      <div class="stat-card" id="card-jitter">
+        <div class="stat-card-glow"></div>
+        <span class="stat-icon">≈</span>
+        <div class="stat-label">Jitter</div>
+        <div class="stat-val" id="jitter-val">—</div>
+        <div class="stat-unit">ms</div>
+        <div class="stat-bar"><div class="stat-bar-fill" id="jitter-bar" style="background:linear-gradient(90deg,#ff6b00,#ff006e)"></div></div>
+      </div>
+    </div>
+
+    <!-- SPEED GRAPH -->
+    <canvas class="graph-canvas graph-area" id="graph-canvas" width="600" height="80"></canvas>
+
+    <!-- ROAST CARD -->
+    <div class="roast-card" id="roast-card">
+      <div class="roast-label">// AI VERDICT</div>
+      <div class="roast-text" id="roast-text"></div>
+    </div>
+
+    <!-- SHARE BTN -->
+    <button class="start-btn" id="share-btn" style="display:none;margin-top:4px" onclick="showShare()">
+      <span class="start-btn-text">⬡ GENERATE SHARE CARD</span>
+    </button>
+
+  </div>
+</div>
+
+<!-- HISTORY TOGGLE -->
+<button class="history-toggle" id="history-toggle" onclick="toggleHistory()">TEST HISTORY</button>
+
+<!-- HISTORY PANEL -->
+<div class="history-panel" id="history-panel">
+  <div class="history-title">▸ HISTORY</div>
+  <div id="history-list"></div>
+</div>
+
+<!-- SHARE OVERLAY -->
+<div class="share-overlay" id="share-overlay">
+  <div id="share-card">
+    <div class="share-card-bg"></div>
+    <div class="share-card-grid"></div>
+    <button class="close-share" onclick="closeShare()">✕</button>
+    <div class="share-logo">VELOCITY<span style="color:var(--neon-purple)">X</span></div>
+    <div class="share-speeds">
+      <div class="share-speed-item">
+        <div class="share-speed-val" id="sc-dl">—</div>
+        <div class="share-speed-lbl">⬇ DOWNLOAD</div>
+      </div>
+      <div class="share-speed-item">
+        <div class="share-speed-val" id="sc-ul">—</div>
+        <div class="share-speed-lbl">⬆ UPLOAD</div>
+      </div>
+      <div class="share-speed-item">
+        <div class="share-speed-val" id="sc-ping">—</div>
+        <div class="share-speed-lbl">◎ PING</div>
+      </div>
+    </div>
+    <div class="share-roast-display" id="sc-roast"></div>
+    <div class="share-actions">
+      <button class="share-act-btn" onclick="copyResults()">⬡ COPY RESULTS</button>
+      <button class="share-act-btn" onclick="closeShare()">◀ CLOSE</button>
+    </div>
+  </div>
+</div>
+
+<!-- STATUS BAR -->
+<div class="status-bar">
+  <div class="status-text" id="status-text">SYSTEM ONLINE // AWAITING COMMAND</div>
+  <div class="status-indicator">
+    <span class="fps-counter" id="fps-display">60 FPS</span>
+    <span class="status-text">v2.0.77</span>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// THREE.JS BACKGROUND
+// ═══════════════════════════════════════════════════════
+const bgCanvas = document.getElementById('bg-canvas');
+const renderer = new THREE.WebGLRenderer({canvas:bgCanvas,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(window.innerWidth,window.innerHeight);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight,0.1,1000);
+camera.position.z = 5;
+
+// TUNNEL
+const tunnelGeo = new THREE.CylinderGeometry(3,3,80,6,40,true);
+const tunnelMat = new THREE.MeshBasicMaterial({
+  color:0x00d4ff,wireframe:true,opacity:.08,transparent:true
+});
+const tunnel = new THREE.Mesh(tunnelGeo,tunnelMat);
+tunnel.rotation.x = Math.PI/2;
+tunnel.position.z = -30;
+scene.add(tunnel);
+
+// INNER TUNNEL
+const innerTunnelGeo = new THREE.CylinderGeometry(1.5,1.5,80,6,40,true);
+const innerTunnelMat = new THREE.MeshBasicMaterial({
+  color:0xb400ff,wireframe:true,opacity:.05,transparent:true
+});
+const innerTunnel = new THREE.Mesh(innerTunnelGeo,innerTunnelMat);
+innerTunnel.rotation.x = Math.PI/2;
+innerTunnel.position.z = -30;
+scene.add(innerTunnel);
+
+// PARTICLE FIELD
+const particleCount = 1500;
+const positions = new Float32Array(particleCount*3);
+const velocities = new Float32Array(particleCount);
+for(let i=0;i<particleCount;i++){
+  positions[i*3]   = (Math.random()-0.5)*20;
+  positions[i*3+1] = (Math.random()-0.5)*20;
+  positions[i*3+2] = (Math.random()-0.5)*60-20;
+  velocities[i]    = 0.02+Math.random()*0.08;
+}
+const particleGeo = new THREE.BufferGeometry();
+particleGeo.setAttribute('position',new THREE.BufferAttribute(positions,3));
+const particleMat = new THREE.PointsMaterial({
+  color:0x00d4ff,size:0.06,transparent:true,opacity:.7,sizeAttenuation:true
+});
+const particles = new THREE.Points(particleGeo,particleMat);
+scene.add(particles);
+
+// GRID PLANE
+const gridGeo = new THREE.PlaneGeometry(40,80,20,40);
+const gridMat = new THREE.MeshBasicMaterial({color:0x00d4ff,wireframe:true,opacity:.04,transparent:true});
+const grid1 = new THREE.Mesh(gridGeo,gridMat);
+grid1.rotation.x = -Math.PI/2;
+grid1.position.y = -4;
+grid1.position.z = -20;
+scene.add(grid1);
+const grid2 = new THREE.Mesh(gridGeo,gridMat);
+grid2.rotation.x = Math.PI/2;
+grid2.position.y = 4;
+grid2.position.z = -20;
+scene.add(grid2);
+
+// ENERGY RINGS
+const rings = [];
+for(let i=0;i<6;i++){
+  const rg = new THREE.TorusGeometry(2+i*0.3,0.01,4,80);
+  const rm = new THREE.MeshBasicMaterial({color:i%2===0?0x00d4ff:0xb400ff,opacity:.15-i*0.02,transparent:true});
+  const r = new THREE.Mesh(rg,rm);
+  r.position.z = -5-i*3;
+  scene.add(r);
+  rings.push(r);
+}
+
+// STARS
+const starGeo = new THREE.BufferGeometry();
+const starPos = new Float32Array(3000*3);
+for(let i=0;i<3000;i++){
+  starPos[i*3]   = (Math.random()-0.5)*100;
+  starPos[i*3+1] = (Math.random()-0.5)*100;
+  starPos[i*3+2] = (Math.random()-0.5)*100-50;
+}
+starGeo.setAttribute('position',new THREE.BufferAttribute(starPos,3));
+const starMat = new THREE.PointsMaterial({color:0xffffff,size:0.03,transparent:true,opacity:.4});
+const stars = new THREE.Points(starGeo,starMat);
+scene.add(stars);
+
+let tunnelSpeed = 0.002;
+let targetTunnelSpeed = 0.002;
+let isTesting = false;
+let testPhase = 'idle'; // idle, ping, download, upload, done
+let mouseX = 0, mouseY = 0;
+let shakeAmount = 0;
+
+// ═══════════════════════════════════════════════════════
+// SPEED GAUGE CANVAS
+// ═══════════════════════════════════════════════════════
+const sc = document.getElementById('speed-canvas');
+const ctx = sc.getContext('2d');
+const W = sc.width, H = sc.height;
+const cx = W/2, cy = H/2, R = W/2 - 20;
+let gaugeValue = 0, targetGaugeValue = 0;
+let glowPulse = 0;
+const graphData = [];
+const maxGraphPoints = 60;
+
+function drawGauge(val){
+  ctx.clearRect(0,0,W,H);
+  const startAngle = Math.PI*0.75;
+  const endAngle   = Math.PI*2.25;
+  const range      = endAngle - startAngle;
+  const progress   = Math.min(val/400,1);
+  const currentAngle = startAngle + range*progress;
+
+  // BG TRACK
+  ctx.beginPath();
+  ctx.arc(cx,cy,R,startAngle,endAngle);
+  ctx.strokeStyle='rgba(0,212,255,0.08)';
+  ctx.lineWidth=16;
+  ctx.lineCap='round';
+  ctx.stroke();
+
+  // TICK MARKS
+  for(let i=0;i<=20;i++){
+    const a = startAngle + (range/20)*i;
+    const isMajor = i%5===0;
+    const len = isMajor?14:7;
+    const r1 = R-20, r2 = R-20+len;
+    ctx.beginPath();
+    ctx.moveTo(cx+Math.cos(a)*r1, cy+Math.sin(a)*r1);
+    ctx.lineTo(cx+Math.cos(a)*r2, cy+Math.sin(a)*r2);
+    ctx.strokeStyle = isMajor?'rgba(0,212,255,0.5)':'rgba(0,212,255,0.2)';
+    ctx.lineWidth = isMajor?1.5:0.8;
+    ctx.stroke();
+    if(isMajor){
+      const label = (400/20*i).toFixed(0);
+      ctx.font=`bold 10px Orbitron`;
+      ctx.fillStyle='rgba(0,212,255,0.4)';
+      ctx.textAlign='center';
+      ctx.textBaseline='middle';
+      ctx.fillText(label, cx+Math.cos(a)*(R-38), cy+Math.sin(a)*(R-38));
+    }
+  }
+
+  // COLORED ARC (gradient)
+  if(progress>0){
+    const grad = ctx.createLinearGradient(0,H,W,0);
+    grad.addColorStop(0,'#00d4ff');
+    grad.addColorStop(0.5,'#b400ff');
+    grad.addColorStop(1,'#ff006e');
+    ctx.beginPath();
+    ctx.arc(cx,cy,R,startAngle,currentAngle);
+    ctx.strokeStyle=grad;
+    ctx.lineWidth=16;
+    ctx.lineCap='round';
+    ctx.shadowColor=val>200?'#ff006e':'#00d4ff';
+    ctx.shadowBlur=30+glowPulse*20;
+    ctx.stroke();
+    ctx.shadowBlur=0;
+  }
+
+  // SEGMENT DOTS
+  for(let i=0;i<=12;i++){
+    const a = startAngle+(range/12)*i;
+    const dot_r = R;
+    const dotA = startAngle+(range/12)*i;
+    const active = dotA <= currentAngle+0.01;
+    ctx.beginPath();
+    ctx.arc(cx+Math.cos(a)*dot_r, cy+Math.sin(a)*dot_r, 3, 0, Math.PI*2);
+    ctx.fillStyle = active?'rgba(0,212,255,0.9)':'rgba(0,212,255,0.15)';
+    if(active){ctx.shadowColor='#00d4ff';ctx.shadowBlur=8;}
+    ctx.fill();
+    ctx.shadowBlur=0;
+  }
+
+  // OUTER GLOW RINGS
+  for(let i=3;i>=1;i--){
+    ctx.beginPath();
+    ctx.arc(cx,cy,R+i*6,0,Math.PI*2);
+    ctx.strokeStyle=`rgba(0,212,255,${0.02/i})`;
+    ctx.lineWidth=1;
+    ctx.stroke();
+  }
+
+  // NEEDLE
+  const needleAngle = startAngle+range*progress;
+  ctx.save();
+  ctx.translate(cx,cy);
+  ctx.rotate(needleAngle);
+  const ng = ctx.createLinearGradient(0,-R,0,-R/2);
+  ng.addColorStop(0,'rgba(0,212,255,0)');
+  ng.addColorStop(1,'rgba(0,212,255,0.9)');
+  ctx.beginPath();
+  ctx.moveTo(-2,0); ctx.lineTo(0,-(R-20)); ctx.lineTo(2,0);
+  ctx.fillStyle=ng;
+  ctx.shadowColor='#00d4ff';ctx.shadowBlur=15;
+  ctx.fill();
+  // needle tip dot
+  ctx.beginPath();
+  ctx.arc(0,0,5,0,Math.PI*2);
+  ctx.fillStyle='#00d4ff';
+  ctx.shadowBlur=20;
+  ctx.fill();
+  ctx.restore();
+
+  // CENTER DECORATION
+  ctx.beginPath();
+  ctx.arc(cx,cy,20,0,Math.PI*2);
+  ctx.strokeStyle='rgba(0,212,255,0.2)';
+  ctx.lineWidth=1;
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(cx,cy,10,0,Math.PI*2);
+  ctx.fillStyle='rgba(0,212,255,0.1)';
+  ctx.fill();
+}
+
+// ═══════════════════════════════════════════════════════
+// GRAPH CANVAS
+// ═══════════════════════════════════════════════════════
+const gc = document.getElementById('graph-canvas');
+const gctx = gc.getContext('2d');
+
+function drawGraph(){
+  gctx.clearRect(0,0,gc.width,gc.height);
+  if(graphData.length<2) return;
+  const maxV = Math.max(...graphData,1);
+  const w = gc.width, h = gc.height;
+
+  // grid lines
+  for(let i=0;i<=4;i++){
+    const y = h-(h/4)*i;
+    gctx.beginPath();
+    gctx.moveTo(0,y); gctx.lineTo(w,y);
+    gctx.strokeStyle='rgba(0,212,255,0.06)';
+    gctx.lineWidth=1;
+    gctx.stroke();
+  }
+
+  // area fill
+  const grad = gctx.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0,'rgba(0,212,255,0.3)');
+  grad.addColorStop(1,'rgba(0,212,255,0)');
+  gctx.beginPath();
+  gctx.moveTo(0,h);
+  graphData.forEach((v,i)=>{
+    const x = (i/(maxGraphPoints-1))*w;
+    const y = h - (v/maxV)*h*0.9;
+    if(i===0) gctx.lineTo(x,y); else gctx.lineTo(x,y);
+  });
+  gctx.lineTo(w,h); gctx.closePath();
+  gctx.fillStyle=grad; gctx.fill();
+
+  // line
+  const lineGrad = gctx.createLinearGradient(0,0,w,0);
+  lineGrad.addColorStop(0,'#00d4ff');
+  lineGrad.addColorStop(0.5,'#b400ff');
+  lineGrad.addColorStop(1,'#ff006e');
+  gctx.beginPath();
+  graphData.forEach((v,i)=>{
+    const x = (i/(maxGraphPoints-1))*w;
+    const y = h - (v/maxV)*h*0.9;
+    if(i===0) gctx.moveTo(x,y); else gctx.lineTo(x,y);
+  });
+  gctx.strokeStyle=lineGrad;
+  gctx.lineWidth=2;
+  gctx.shadowColor='#00d4ff';
+  gctx.shadowBlur=8;
+  gctx.stroke();
+  gctx.shadowBlur=0;
+}
+
+// ═══════════════════════════════════════════════════════
+// CUSTOM CURSOR
+// ═══════════════════════════════════════════════════════
+const cursorEl = document.getElementById('cursor');
+const cursorDot = document.getElementById('cursor-dot');
+const cursorRing = document.getElementById('cursor-ring');
+let cursorX=window.innerWidth/2, cursorY=window.innerHeight/2;
+let ringX=cursorX, ringY=cursorY;
+
+document.addEventListener('mousemove',e=>{
+  cursorX=e.clientX; cursorY=e.clientY;
+  mouseX=(e.clientX/window.innerWidth-.5)*2;
+  mouseY=-(e.clientY/window.innerHeight-.5)*2;
+  cursorEl.style.left=cursorX+'px';
+  cursorEl.style.top=cursorY+'px';
+});
+document.addEventListener('mousedown',()=>{
+  cursorDot.style.transform='translate(-50%,-50%) scale(2)';
+  cursorRing.style.width='60px';
+  cursorRing.style.height='60px';
+});
+document.addEventListener('mouseup',()=>{
+  cursorDot.style.transform='translate(-50%,-50%) scale(1)';
+  cursorRing.style.width='40px';
+  cursorRing.style.height='40px';
+});
+
+// ═══════════════════════════════════════════════════════
+// MAIN ANIMATION LOOP
+// ═══════════════════════════════════════════════════════
+let lastTime=0, fps=60, frameCount=0, fpsTimer=0;
+let time=0;
+
+function animate(ts){
+  requestAnimationFrame(animate);
+  const delta=Math.min((ts-lastTime)/1000,.05);
+  lastTime=ts; time+=delta;
+  frameCount++;
+  fpsTimer+=delta;
+  if(fpsTimer>=0.5){
+    fps=Math.round(frameCount/fpsTimer);
+    document.getElementById('fps-display').textContent=fps+' FPS';
+    frameCount=0; fpsTimer=0;
+  }
+
+  // Cursor ring lerp
+  ringX+=(cursorX-ringX)*0.12;
+  ringY+=(cursorY-ringY)*0.12;
+  cursorRing.style.left=ringX+'px';
+  cursorRing.style.top=ringY+'px';
+  cursorEl.style.left=cursorX+'px';
+  cursorEl.style.top=cursorY+'px';
+
+  // Camera subtle drift
+  camera.position.x += (mouseX*0.5-camera.position.x)*0.03;
+  camera.position.y += (mouseY*0.3-camera.position.y)*0.03;
+
+  // Speed lerp
+  tunnelSpeed += (targetTunnelSpeed - tunnelSpeed)*0.03;
+  gaugeValue  += (targetGaugeValue  - gaugeValue )*0.06;
+
+  // Glow pulse
+  glowPulse = (Math.sin(time*4)+1)/2;
+
+  // Tunnel rotation + scroll
+  tunnel.rotation.z += tunnelSpeed;
+  innerTunnel.rotation.z -= tunnelSpeed*1.5;
+  tunnel.position.z += tunnelSpeed*3;
+  if(tunnel.position.z>0) tunnel.position.z=-30;
+
+  // Rings
+  rings.forEach((r,i)=>{
+    r.position.z += tunnelSpeed*6+i*0.01;
+    if(r.position.z>5) r.position.z=-18;
+    r.rotation.z += 0.002+i*0.001;
+    r.material.opacity = (0.12+glowPulse*0.08)*Math.min(tunnelSpeed/0.02,1);
+  });
+
+  // Particles
+  const pos = particles.geometry.attributes.position.array;
+  for(let i=0;i<particleCount;i++){
+    pos[i*3+2] += velocities[i]*(1+tunnelSpeed*100);
+    if(pos[i*3+2]>5){
+      pos[i*3+2]=-55;
+      pos[i*3]=(Math.random()-.5)*20;
+      pos[i*3+1]=(Math.random()-.5)*20;
+    }
+  }
+  particles.geometry.attributes.position.needsUpdate=true;
+  particleMat.size=0.05+tunnelSpeed*2;
+
+  // Grid scroll
+  grid1.position.z+=tunnelSpeed*2;
+  grid2.position.z+=tunnelSpeed*2;
+  if(grid1.position.z>10){grid1.position.z=-40;}
+
+  // Stars rotation
+  stars.rotation.y+=0.0001;
+
+  // Screen shake
+  if(shakeAmount>0){
+    const sx=(Math.random()-.5)*shakeAmount;
+    const sy=(Math.random()-.5)*shakeAmount;
+    document.getElementById('main-panel').style.transform=`translate(${sx}px,${sy}px)`;
+    shakeAmount*=0.88;
+    if(shakeAmount<0.1){shakeAmount=0;document.getElementById('main-panel').style.transform='';}
+  }
+
+  // Draw gauge
+  drawGauge(gaugeValue);
+  drawGraph();
+
+  renderer.render(scene,camera);
+}
+animate(0);
+
+// ═══════════════════════════════════════════════════════
+// SPEED TEST ENGINE (SIMULATED)
+// ═══════════════════════════════════════════════════════
+let testResults = {download:0,upload:0,ping:0,jitter:0};
+let testHistory = [];
+let currentSpeed = 0;
+let testRunning = false;
+
+const ROASTS = {
+  ultra:["NASA wants their internet back 🚀","Are you downloading the universe? 🌌","ISP called, they're scared 😈","Bruh, you're breaking the simulation ⚡","Your ISP is crying in the corner 😭"],
+  fast:["This hits different 🔥","Your router is built different 💪","Smooth like butter on a jet 🛸","You didn't have to flex like that 💅","The matrix bends for you 🌀"],
+  medium:["Not bad, not great, very mid 😐","Could be worse, could be fiber 🤷","Your WiFi is having a moment 📶","Average speedster, assemble 🦸","This is fine. This is completely fine. 🔥🔥"],
+  slow:["Bro is using ancient WiFi 💀","My grandma's dial-up called, it wants its speed back ☠️","You're buffering IRL 🌀","Did you download the internet itself? 😭","This ping is a historical artifact 🏛️"],
+  ancient:["Loading... please wait (forever) ⌛","Connection status: technically exists 🕯️","Signal strength: vibes only 📻","Your bits are walking, not running 🐢","Calling archaeologist to analyze your connection 🦕"]
+};
+
+function getRoast(dl){
+  if(dl>400) return pick(ROASTS.ultra);
+  if(dl>150) return pick(ROASTS.fast);
+  if(dl>50)  return pick(ROASTS.medium);
+  if(dl>10)  return pick(ROASTS.slow);
+  return pick(ROASTS.ancient);
+}
+function pick(arr){return arr[Math.floor(Math.random()*arr.length)];}
+
+async function startTest(){
+  if(testRunning) return;
+  testRunning=true;
+  testResults={download:0,upload:0,ping:0,jitter:0};
+  graphData.length=0;
+
+  const btn=document.getElementById('start-btn');
+  const btnText=document.getElementById('btn-text');
+  btn.disabled=true;
+  document.getElementById('share-btn').style.display='none';
+  document.getElementById('roast-card').classList.remove('visible');
+
+  // Reset displays
+  ['dl-val','ul-val','ping-val','jitter-val'].forEach(id=>document.getElementById(id).textContent='—');
+  ['dl-bar','ul-bar','ping-bar','jitter-bar'].forEach(id=>document.getElementById(id).style.width='0%');
+
+  // PHASE: PING
+  testPhase='ping';
+  setStatus('INITIALIZING NEURAL HANDSHAKE...');
+  document.getElementById('speed-phase').textContent='PING';
+  document.getElementById('speed-unit').textContent='ms';
+  targetTunnelSpeed=0.005;
+
+  // Flash tunnel
+  flashTunnel();
+  await sleep(600);
+
+  // Animate ping
+  const basePing = 5+Math.random()*70;
+  const jitter = 1+Math.random()*15;
+  await animateNumber('ping-val', 0, basePing, 1200, v=>{
+    targetGaugeValue=v;
+    document.getElementById('speed-val').textContent=v.toFixed(0);
+    document.getElementById('ping-bar').style.width=Math.min(v/200*100,100)+'%';
+  });
+  testResults.ping=basePing;
+  testResults.jitter=jitter;
+  document.getElementById('ping-val').textContent=basePing.toFixed(0);
+  document.getElementById('jitter-val').textContent=jitter.toFixed(1);
+  document.getElementById('jitter-bar').style.width=Math.min(jitter/50*100,100)+'%';
+  document.getElementById('ping-icon').textContent='◉';
+
+  await sleep(400);
+
+  // PHASE: DOWNLOAD
+  testPhase='download';
+  setStatus('MEASURING DOWNLOAD BANDWIDTH...');
+  document.getElementById('speed-phase').textContent='DOWNLOAD';
+  document.getElementById('speed-unit').textContent='Mbps';
+  targetTunnelSpeed=0.025;
+  flashTunnel();
+  await sleep(400);
+
+  const dlTarget = 10+Math.random()*480;
+  const dlDuration = 4000;
+  const dlStart = Date.now();
+  let dlPeak = 0;
+  await new Promise(res=>{
+    const dl = setInterval(()=>{
+      const progress = Math.min((Date.now()-dlStart)/dlDuration,1);
+      const ease = easeInOut(progress);
+      const noise = (Math.random()-.5)*dlTarget*0.12;
+      const current = dlTarget*ease + noise;
+      const clamped = Math.max(0,current);
+      currentSpeed=clamped;
+      dlPeak=Math.max(dlPeak,clamped);
+
+      document.getElementById('speed-val').textContent=clamped.toFixed(1);
+      document.getElementById('dl-val').textContent=clamped.toFixed(1);
+      document.getElementById('dl-bar').style.width=Math.min(clamped/500*100,100)+'%';
+      targetGaugeValue=Math.min(clamped/500*400,400);
+      targetTunnelSpeed=0.005+clamped/500*0.12;
+
+      graphData.push(clamped);
+      if(graphData.length>maxGraphPoints) graphData.shift();
+
+      // Screen shake at high speeds
+      if(clamped>300) shakeAmount=clamped/500*3;
+      if(progress>=1){clearInterval(dl);res();}
+    },60);
+  });
+  testResults.download=dlPeak;
+  targetTunnelSpeed=0.01;
+
+  await sleep(500);
+
+  // PHASE: UPLOAD
+  testPhase='upload';
+  setStatus('MEASURING UPLOAD BANDWIDTH...');
+  document.getElementById('speed-phase').textContent='UPLOAD';
+  flashTunnel();
+  await sleep(400);
+  targetTunnelSpeed=0.02;
+  graphData.length=0;
+
+  const ulTarget = dlPeak*(0.3+Math.random()*0.5);
+  const ulStart = Date.now();
+  let ulPeak = 0;
+  await new Promise(res=>{
+    const ul = setInterval(()=>{
+      const progress = Math.min((Date.now()-ulStart)/3500,1);
+      const ease = easeInOut(progress);
+      const noise = (Math.random()-.5)*ulTarget*0.1;
+      const current = Math.max(0, ulTarget*ease+noise);
+      ulPeak=Math.max(ulPeak,current);
+
+      document.getElementById('speed-val').textContent=current.toFixed(1);
+      document.getElementById('ul-val').textContent=current.toFixed(1);
+      document.getElementById('ul-bar').style.width=Math.min(current/500*100,100)+'%';
+      targetGaugeValue=Math.min(current/500*400,400);
+      targetTunnelSpeed=0.005+current/500*0.1;
+
+      graphData.push(current);
+      if(graphData.length>maxGraphPoints) graphData.shift();
+      if(progress>=1){clearInterval(ul);res();}
+    },60);
+  });
+  testResults.upload=ulPeak;
+
+  // DONE
+  testPhase='done';
+  targetTunnelSpeed=0.003;
+  targetGaugeValue=0;
+  document.getElementById('speed-phase').textContent='COMPLETE';
+  setStatus(`TEST COMPLETE // DL: ${testResults.download.toFixed(1)} Mbps // UL: ${testResults.upload.toFixed(1)} Mbps // PING: ${testResults.ping.toFixed(0)} ms`);
+
+  // Final values
+  document.getElementById('speed-val').textContent=testResults.download.toFixed(1);
+  document.getElementById('dl-val').textContent=testResults.download.toFixed(1);
+  document.getElementById('ul-val').textContent=testResults.upload.toFixed(1);
+  document.getElementById('ping-val').textContent=testResults.ping.toFixed(0);
+  document.getElementById('jitter-val').textContent=testResults.jitter.toFixed(1);
+
+  // ROAST
+  await sleep(300);
+  const roast = getRoast(testResults.download);
+  document.getElementById('roast-text').textContent=roast;
+  document.getElementById('roast-card').classList.add('visible');
+
+  // SHARE
+  await sleep(400);
+  document.getElementById('share-btn').style.display='';
+
+  // Add to history
+  addHistory(testResults);
+
+  // Reset btn
+  btn.disabled=false;
+  btnText.textContent='↺ RUN AGAIN';
+  testRunning=false;
+  testPhase='idle';
+  flashTunnel();
+}
+
+function addHistory(r){
+  testHistory.unshift({...r, time:new Date().toLocaleTimeString()});
+  if(testHistory.length>5) testHistory.pop();
+  renderHistory();
+}
+
+function renderHistory(){
+  const list=document.getElementById('history-list');
+  list.innerHTML=testHistory.map(h=>`
+    <div class="history-item">
+      <div class="history-speed">${h.download.toFixed(1)} <small style="font-size:11px;opacity:.5">Mbps</small></div>
+      <div class="history-time">${h.time}</div>
+    </div>
+  `).join('');
+  if(testHistory.length>0){
+    document.getElementById('history-panel').classList.add('show');
+  }
+}
+
+function toggleHistory(){
+  const p=document.getElementById('history-panel');
+  p.classList.toggle('show');
+}
+
+function showShare(){
+  document.getElementById('sc-dl').textContent=testResults.download.toFixed(1);
+  document.getElementById('sc-ul').textContent=testResults.upload.toFixed(1);
+  document.getElementById('sc-ping').textContent=testResults.ping.toFixed(0);
+  document.getElementById('sc-roast').textContent=getRoast(testResults.download);
+  document.getElementById('share-overlay').classList.add('visible');
+}
+function closeShare(){
+  document.getElementById('share-overlay').classList.remove('visible');
+}
+function copyResults(){
+  const t=`VelocityX Speed Test Results:\n↓ Download: ${testResults.download.toFixed(1)} Mbps\n↑ Upload: ${testResults.upload.toFixed(1)} Mbps\n◎ Ping: ${testResults.ping.toFixed(0)} ms\n${getRoast(testResults.download)}\ntest.velocityx.io`;
+  navigator.clipboard.writeText(t).catch(()=>{});
+  const btn=event.currentTarget;
+  btn.textContent='✓ COPIED';
+  setTimeout(()=>btn.textContent='⬡ COPY RESULTS',2000);
+}
+
+// ═══════════════════════════════════════════════════════
+// THEME SWITCHER
+// ═══════════════════════════════════════════════════════
+function setTheme(theme){
+  document.body.className='theme-'+theme;
+  document.querySelectorAll('.theme-btn').forEach(b=>{
+    b.classList.toggle('active', b.textContent.toLowerCase().startsWith(theme.substring(0,4).toLowerCase()));
+  });
+  // Update Three.js colors
+  const colors={cyberpunk:0x00d4ff,space:0x4fc3f7,rgb:0xff0000,hacker:0x00ff41};
+  const c2={cyberpunk:0xb400ff,space:0x7c4dff,rgb:0x00ff00,hacker:0x00cc33};
+  particleMat.color.setHex(colors[theme]);
+  tunnelMat.color.setHex(colors[theme]);
+  innerTunnelMat.color.setHex(c2[theme]);
+}
+
+// ═══════════════════════════════════════════════════════
+// UTILS
+// ═══════════════════════════════════════════════════════
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function easeInOut(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+
+function animateNumber(id, from, to, dur, cb){
+  return new Promise(res=>{
+    const start=Date.now();
+    const tick=()=>{
+      const p=Math.min((Date.now()-start)/dur,1);
+      const v=from+(to-from)*easeInOut(p);
+      cb(v);
+      if(p<1) requestAnimationFrame(tick); else res();
+    };
+    tick();
+  });
+}
+
+function flashTunnel(){
+  const f=document.getElementById('tunnel-flash');
+  f.style.transition='opacity 0.1s';
+  f.style.opacity='1';
+  setTimeout(()=>{f.style.transition='opacity 0.6s';f.style.opacity='0';},100);
+}
+
+function setStatus(t){
+  document.getElementById('status-text').textContent=t;
+}
+
+// RESIZE
+window.addEventListener('resize',()=>{
+  camera.aspect=window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth,window.innerHeight);
+});
+
+// Dynamic lighting (css variable update for mouse)
+document.addEventListener('mousemove',e=>{
+  const x=(e.clientX/window.innerWidth*100).toFixed(1);
+  const y=(e.clientY/window.innerHeight*100).toFixed(1);
+  document.body.style.setProperty('--mouse-x',x+'%');
+  document.body.style.setProperty('--mouse-y',y+'%');
+});
+
+// GLITCH INTRO
+window.addEventListener('load',()=>{
+  const logo=document.querySelector('.logo');
+  let count=0;
+  const g=setInterval(()=>{
+    logo.style.opacity=Math.random()>.3?'1':'0.3';
+    count++;
+    if(count>12){clearInterval(g);logo.style.opacity='1';}
+  },80);
+
+  // Stagger card entrance
+  gsap.from('.stat-card',{y:30,opacity:0,duration:.6,stagger:.1,delay:.3,ease:'power2.out'});
+  gsap.from('.meter-container',{scale:.8,opacity:0,duration:1,delay:.1,ease:'back.out(1.7)'});
+  gsap.from('.start-btn',{y:20,opacity:0,duration:.6,delay:.6,ease:'power2.out'});
+  gsap.from('.header',{y:-40,opacity:0,duration:.8,ease:'power2.out'});
+});
+</script>
+</body>
+</html>
