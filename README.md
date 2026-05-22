@@ -1,41 +1,7 @@
-# VelocityX ⚡
 
-VelocityX is a futuristic cyberpunk internet speed test web app with cinematic animations, neon visuals, immersive sound effects, and real-time network testing.
-
-![VelocityX Banner](Add your screenshot here)
-
-## 🚀 Features
-
-- Futuristic cyberpunk UI
-- Real-time internet speed testing
-- Cinematic animations
-- Immersive sound effects
-- Mobile responsive design
-- RGB glow effects
-- Multiple visual themes
-- Download / Upload / Ping / Jitter stats
-- AI roast messages
-- Smooth gaming-inspired interface
-
-## 🛠 Tech Stack
-
-- React
-- Vite
-- Tailwind CSS
-- Framer Motion
-- Three.js
-- GSAP
-
-## 📱 Responsive
-
-Optimized for:
-- Desktop
-- Android
-- iPhone
-- Tablets
-
-## ⚡ Installation
-
-```bash
-npm install
-npm run dev
+1. Open Android Studio
+2. Select **Open** and choose the directory containing this project
+3. Allow Android Studio to fix any incompatibilities as it imports the project.
+4. Create a file named `.env` in the project directory and set `GEMINI_API_KEY` in that file to your Gemini API key (see `.env.example` for an example)
+5. Remove this line from the app's `build.gradle.kts` file: `signingConfig = signingConfigs.getByName("debugConfig")`
+6. Run the app on an emulator or physical device
